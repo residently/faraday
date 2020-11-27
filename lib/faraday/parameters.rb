@@ -8,18 +8,23 @@ module Faraday
     end
 
     def self.encode(params)
+      Rails.logger.info "[NestedParamsEncoder][#encode] - params type: #{params.class}"
+      Rails.logger.info "[NestedParamsEncoder][#encode] - params: #{params.inspect}"
       return nil if params == nil
 
       if !params.is_a?(Array)
         if !params.respond_to?(:to_hash)
+          Rails.logger.info "[NestedParamsEncoder][#encode] - raising TypeError "
           raise TypeError,
             "Can't convert #{params.class} into Hash."
         end
         params = params.to_hash
+        Rails.logger.info "[NestedParamsEncoder][#encode] - params before map: #{params.inspect}"
         params = params.map do |key, value|
           key = key.to_s if key.kind_of?(Symbol)
           [key, value]
         end
+        Rails.logger.info "[NestedParamsEncoder][#encode] - params after map: #{params.inspect}"
         # Useful default for OAuth and caching.
         # Only to be used for non-Array inputs. Arrays should preserve order.
         params.sort!
@@ -27,7 +32,9 @@ module Faraday
 
       # Helper lambda
       to_query = lambda do |parent, value|
+        Rails.logger.info "[NestedParamsEncoder][#to_query] - parent: #{parent}, value: #{value}"
         if value.is_a?(Hash)
+          Rails.logger.info "[NestedParamsEncoder][#to_query] - value is a hash"
           value = value.map do |key, val|
             key = escape(key)
             [key, val]
@@ -40,6 +47,7 @@ module Faraday
           end
           return buffer.chop
         elsif value.is_a?(Array)
+          Rails.logger.info "[NestedParamsEncoder][#to_query] - value is an array"
           new_parent = "#{parent}%5B%5D"
           return new_parent if value.empty?
           buffer = ""
@@ -48,8 +56,10 @@ module Faraday
           end
           return buffer.chop
         elsif value.nil?
+          Rails.logger.info "[NestedParamsEncoder][#to_query] - value is nil"
           return parent
         else
+          Rails.logger.info "[NestedParamsEncoder][#to_query] - value fallback, class: #{value.class}"
           encoded_value = escape(value)
           return "#{parent}=#{encoded_value}"
         end
@@ -57,10 +67,13 @@ module Faraday
 
       # The params have form [['key1', 'value1'], ['key2', 'value2']].
       buffer = ''
+      Rails.logger.info "[NestedParamsEncoder][#encode] - buffer before loop: #{buffer}"
       params.each do |parent, value|
         encoded_parent = escape(parent)
+        Rails.logger.info "[NestedParamsEncoder][#encode] - buffer in loop. parent: #{parent}, value: #{value}"
         buffer << "#{to_query.call(encoded_parent, value)}&"
       end
+      Rails.logger.info "[NestedParamsEncoder][#encode] - buffer after loop: #{buffer}"
       return buffer.chop
     end
 
